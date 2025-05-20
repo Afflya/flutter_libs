@@ -1,5 +1,7 @@
 library;
 
+import 'dart:convert';
+
 import 'package:http/http.dart' as http;
 
 const headerIfModifiedSince = "If-Modified-Since";
@@ -17,6 +19,13 @@ mixin DomainConfig {
   String get urlScheme => scheme;
 
   String get urlDomain => '$urlScheme://$domain';
+}
+
+extension RequestX on http.Request {
+  set jsonBody(Object bodyData) {
+    headers['Content-Type'] = 'application/json';
+    body = jsonEncode(bodyData);
+  }
 }
 
 extension ResponseX on http.Response {
