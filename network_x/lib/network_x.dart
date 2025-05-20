@@ -8,7 +8,7 @@ const headerContentType = "Content-Type";
 const headerAuthorization = "Authorization";
 
 mixin DomainConfig {
-  static String defaultScheme = 'https';
+  static const String defaultScheme = 'https';
 
   String get scheme => defaultScheme;
 
