@@ -85,7 +85,7 @@ final class AuthServiceImpl implements AuthService {
         _updateAccount(account);
       }
 
-      request.headers['Authorization'] = 'Bearer ${creds.bearerToken}';
+      request.headers['Authorization'] = creds.bearerToken;
       return request;
     } on NotAuthenticatedException catch (_) {
       _updateAccount(null);
