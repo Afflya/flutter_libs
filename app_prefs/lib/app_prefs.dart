@@ -2,6 +2,7 @@ library;
 
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -122,7 +123,7 @@ class SecuredPrefs {
   /// Init
   ///
 
-  static bool get platformSupported => Platform.isAndroid || Platform.isIOS;
+  static bool get platformSupported => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
   static const _iosOptions = IOSOptions(accessibility: KeychainAccessibility.first_unlock);
 
