@@ -29,7 +29,7 @@ final class AuthServiceImpl implements AuthService {
     AuthServiceState initialState;
 
     try {
-      final creds = await credentials.getCredentials();
+      final creds = await credentials.getCredentials(false);
       if (creds == null) throw NotAuthenticatedException();
       final account = AccountImpl.fromJwt(creds.token);
       initialState = Authorized(account: account);
