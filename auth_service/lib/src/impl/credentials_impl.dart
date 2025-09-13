@@ -9,6 +9,7 @@ import 'package:auth_service/src/errors.dart';
 import 'package:flutter_tools/json.dart';
 import 'package:flutter_tools/scope_functions.dart';
 import 'package:http/http.dart' as http;
+import 'package:synchronized/synchronized.dart';
 
 final class CredentialsImpl implements Credentials {
   ///
@@ -34,7 +35,7 @@ final class CredentialsImpl implements Credentials {
 
   JwtToken? _accessToken;
 
-  Future<JwtToken?>? _lock;
+  final Lock _lock = Lock();
 
   ///
   ///
@@ -51,14 +52,8 @@ final class CredentialsImpl implements Credentials {
         _client = client ?? http.Client();
 
   @override
-  Future<JwtToken?> getCredentials([bool validate = true]) async {
-    final lock = _lock;
-    if (lock != null) {
-      return lock;
-    }
-    final completer = Completer<JwtToken>();
-    _lock = completer.future;
-    try {
+  Future<JwtToken?> getCredentials([bool validate = true]) {
+    return _lock.synchronized(() async {
       final token = await _currentAccessToken();
       if (token == null) {
         throw NotAuthenticatedException();
@@ -66,21 +61,25 @@ final class CredentialsImpl implements Credentials {
       if (validate && token.isExpired) {
         await _refreshCredentials();
       }
-      completer.complete(_accessToken);
-    } on NotAuthenticatedException catch (e) {
-      completer.completeError(e);
-      rethrow;
-    } catch (e) {
-      completer.completeError(e);
-    } finally {
-      _lock = null;
-    }
-
-    return _accessToken;
+      return _accessToken;
+    });
   }
 
   @override
-  Future<void> saveCredentials(CredentialsData tokenData) async {
+  Future<void> saveCredentials(CredentialsData tokenData) {
+    return _lock.synchronized(() => _saveCredentials(tokenData));
+  }
+
+  @override
+  Future<void> clearCredentials() {
+    return _lock.synchronized(_clearCredentials);
+  }
+
+  ///
+  /// private
+  ///
+
+  Future<void> _saveCredentials(CredentialsData tokenData) async {
     final accessToken = JwtToken(
       token: tokenData.accessToken,
       expireIn: tokenData.expiresIn ?? 0,
@@ -89,21 +88,15 @@ final class CredentialsImpl implements Credentials {
 
     final refreshToken = tokenData.refreshToken?.let((it) => JwtToken(token: it));
 
-
     await SecuredPrefs.instance.writeString(key: _accessStoragePath, value: accessToken.token);
     await SecuredPrefs.instance.writeString(key: _refreshStoragePath, value: refreshToken?.token);
   }
 
-  @override
-  Future<void> clearCredentials() async {
+  Future<void> _clearCredentials() async {
     _accessToken = null;
     await SecuredPrefs.instance.remove(_accessStoragePath);
     await SecuredPrefs.instance.remove(_refreshStoragePath);
   }
-
-  ///
-  /// private
-  ///
 
   Future<void> _refreshCredentials([int retry = 2]) async {
     final refreshUrl = _refreshUrl;
@@ -142,11 +135,11 @@ final class CredentialsImpl implements Credentials {
     switch (response.statusCode) {
       case 200:
         final tokenData = CredentialsData.fromJson(jsonBody!);
-        await saveCredentials(tokenData);
+        await _saveCredentials(tokenData);
         return;
       case 401:
       case 404:
-        await clearCredentials();
+        await _clearCredentials();
         throw NotAuthenticatedException(jsonBody);
       case 500:
         if (retry > 0) {
